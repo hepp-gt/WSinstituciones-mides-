@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://DefaultNamespace" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://DefaultNamespace" xmlns:intf="http://DefaultNamespace" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+ <wsdl:types>
+  <schema elementFormDefault="qualified" targetNamespace="http://DefaultNamespace" xmlns="http://www.w3.org/2001/XMLSchema">
+   <element name="main">
+    <complexType>
+     <sequence>
+      <element maxOccurs="unbounded" name="args" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="mainResponse">
+    <complexType/>
+   </element>
+   <element name="Ejecucion">
+    <complexType>
+     <sequence>
+      <element name="Programa" type="xsd:string"/>
+      <element name="strFecIni" type="xsd:string"/>
+      <element name="strFecCar" type="xsd:string"/>
+      <element name="strDias" type="xsd:string"/>
+      <element name="strDBMS" type="xsd:string"/>
+      <element name="strHost" type="xsd:string"/>
+      <element name="strPrt" type="xsd:string"/>
+      <element name="strDB" type="xsd:string"/>
+      <element name="strUsr" type="xsd:string"/>
+      <element name="strPwd" type="xsd:string"/>
+      <element name="strInst" type="xsd:string"/>
+      <element name="strPrg" type="xsd:string"/>
+      <element name="strBen" type="xsd:string"/>
+      <element name="strHostMQ" type="xsd:string"/>
+      <element name="strPrtMQ" type="xsd:string"/>
+      <element name="strNMQ" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="EjecucionResponse">
+    <complexType>
+     <sequence>
+      <element name="EjecucionReturn" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="mainResponse">
+
+      <wsdl:part element="impl:mainResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="EjecucionRequest">
+
+      <wsdl:part element="impl:Ejecucion" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="EjecucionResponse">
+
+      <wsdl:part element="impl:EjecucionResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="mainRequest">
+
+      <wsdl:part element="impl:main" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:portType name="Principal">
+
+      <wsdl:operation name="main">
+
+         <wsdl:input message="impl:mainRequest" name="mainRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:mainResponse" name="mainResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="Ejecucion">
+
+         <wsdl:input message="impl:EjecucionRequest" name="EjecucionRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:EjecucionResponse" name="EjecucionResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="PrincipalSoapBinding" type="impl:Principal">
+
+      <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="main">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="mainRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="mainResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="Ejecucion">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="EjecucionRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="EjecucionResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="PrincipalService">
+
+      <wsdl:port binding="impl:PrincipalSoapBinding" name="Principal">
+
+         <wsdlsoap:address location="http://localhost:8080/WS_Productor_SISO/services/Principal"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>
