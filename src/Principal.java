@@ -1,83 +1,115 @@
+// Librerias Genericas de Java
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
-import java.io.FileNotFoundException;
 // Libreria para utilizar SQL
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.ResultSet;
-
-// Mis clases para el proyecto
-import com.archivo.acceso.*;
 
 //Libreria para utilizar mensajeria de JAVA
 import javax.jms.*;
 
-//Libreria para utilizar Colas de ActiveMQ
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.apache.activemq.selector.ParseException;
-
-import com.archivo.acceso.ConexionDB;
-import com.archivo.acceso.FormateaMensaje;
-import com.archivo.acceso.LeeArchivo;
-import com.archivo.acceso.VerificaFechaCarga;
-import com.archivo.acceso.GrabaArchivo;
-import com.archivo.acceso.DatosUsuario;
-import com.archivo.acceso.DatosBeneficiosUsuario;
-import com.archivo.acceso.DatosEntregas;
-import com.archivo.acceso.ManejoAMQ;
-
+//Mis clases para el proyecto
+import mides.gob.ws.leeinformacion.DatosBeneficiosUsuario;
+import mides.gob.ws.leeinformacion.DatosEntregas;
+import mides.gob.ws.leeinformacion.DatosUsuario;
+import mides.gob.ws.utilerias.ConexionDB;
+import mides.gob.ws.utilerias.FormateaMensaje;
+import mides.gob.ws.utilerias.GrabaArchivo;
+import mides.gob.ws.utilerias.LeeArchivo;
+import mides.gob.ws.utilerias.ManejoAMQ;
 
 public class Principal {
 	private ConexionDB 		conecta;
 	private Connection 		con_SISO;				//Variable para la conexión hacia la Base de Datos		
-	private Statement 		ejSQL_SISO;				//Para ejecutar el select
-	private ResultSet 		rs_SISO; 				//Datos_SISO es el result set que almacena los resultados del select
 	private GrabaArchivo 	ArchLog;
 	private FormateaMensaje	Msjs;
-	private String			Fecha_Proceso;
 	private String 			Fecha_Actual;
 	private ManejoAMQ		ColaAMQ=null;
-	private Date			Fecha_Hoy;
 	
-	public String Ejecucion(String Programa, String strFecIni, String strFecCar, String strDias, String strDBMS, String strHost, String strPrt, String strDB, String strUsr,String strPwd,String strInst,String strPrg,String strBen, String strHostMQ,String strPrtMQ, String strNMQ) throws SQLException, JMSException
+	public boolean ParserParametro (String Parametro, String ValorHoy)
+	{
+		String valor=null;
+		
+		// Recorro el parametro, cada vez que encuentro un separador (,) obtengo el valor y sobre calculo si el ValorHoy es válido
+		// De ser válido rompo el ciclo con un retorno verdadero, de lo contrario continua el ciclo
+		// si el ciclo termina y no se válido el ValorHoy se retorna un false que implica que no hay que ejecutar el proceso
+		
+		if(Parametro.equals("*")) return true;
+		if(Parametro.equals("0")) return false;
+		
+		while ((Parametro.length()>0))
+		{
+			if(Parametro.indexOf(",")>0)
+			{
+				valor = Parametro.substring(0, Parametro.indexOf(","));
+				Parametro=Parametro.replace(valor+"," ,"");
+			} else
+			{
+				valor=Parametro;
+				Parametro=Parametro.replace(valor,"");
+			}
+
+			if(valor.equals(ValorHoy)) return true;
+			
+		}
+		// Se recorrio el parametro en su totalidad, el ciclo no se rompio por lo tanto no existe el valor de hoy en el parametro, retorna falso
+		return false;
+	}
+	
+	public boolean ValidaEsFechaProceso(String p_dia_mes, String p_mes, String p_dia_semana,String Programa) throws java.text.ParseException 
+    {
+		
+		boolean dia_mes_valido=false,mes_valido=false,dia_semana_valido=false;
+		
+		Calendar calc = Calendar.getInstance();
+		
+		String l_mes = String.valueOf(calc.get(Calendar.MONTH)+1);
+		String l_dia_mes = String.valueOf(calc.get(Calendar.DAY_OF_MONTH));
+		String l_dia_semana = String.valueOf(calc.get(Calendar.DAY_OF_WEEK));
+		
+		if ((p_dia_mes.equals(" ")) || (p_dia_mes==null))
+		{
+			Msjs.Mensaje("PARAMETROS", Fecha_Actual, Programa, "Parametro de dia del mes INVALIDO", ArchLog);
+			return false;
+		}
+		
+		if ((p_mes.equals(" ")) || (p_mes==null))
+		{
+			Msjs.Mensaje("PARAMETROS", Fecha_Actual, Programa, "Parametro del mes INVALIDO", ArchLog);
+			return false;
+		}
+		
+		if ((p_dia_semana.equals(" ")) || (p_dia_semana==null))
+		{
+			Msjs.Mensaje("PARAMETROS", Fecha_Actual, Programa, "Parametro día de la semana INVALIDO", ArchLog);
+			return false;
+		}
+		
+	    //Paseo el parametro buscando si el valor de hoy es válido para ejecutar el proceso
+		//los parametros que inician con p_ son los parámetros que vienen del archivo parametro.ini 
+		//las variables con los datos de hoy inician con l_ y esto son los que se validan contra los p_
+		dia_mes_valido=ParserParametro(p_dia_mes,l_dia_mes);
+		mes_valido=ParserParametro(p_mes,l_mes);
+		dia_semana_valido=ParserParametro(p_dia_semana,l_dia_semana);
+		
+		if (p_dia_mes.equalsIgnoreCase("0")) mes_valido=false;
+		if (p_mes.equalsIgnoreCase("0")) { dia_mes_valido=false; dia_semana_valido=false;}
+		if (p_dia_semana.equalsIgnoreCase("0")) mes_valido=false;
+		
+		return dia_mes_valido || mes_valido || dia_semana_valido;
+    }
+	
+	public String Ejecucion(String Programa, String strFecIni, String strDBMS, String strHost, String strPrt, String strDB, String strUsr,String strPwd,String strInst,String strPrg,String strBen, String strHostMQ,String strPrtMQ, String strNMQ) throws SQLException, JMSException
 	{
 		
-		// Tomo la fecha de carga, la fecha inicial y el parametro de días
-		// Se calcula la siguiente fecha en que se debe ejecutar la transmisión de datos
-		VerificaFechaCarga CalculaDias = null;
-		
-		//Si la fecha de proceso en el archivo ini es nula implica que no se ha ejecutado; entonces la fecha de carga inicial es la fecha de proceso
-		try {
-			CalculaDias = new VerificaFechaCarga(strFecIni, strFecCar);
-		} catch (java.text.ParseException e) {
-			Msjs.Mensaje("PROGRAMA", Fecha_Actual,Programa, "La Fecha de Carga Inicial o Fecha de última Carga son Inválidas" + e.getMessage(), ArchLog);
-			// Mensaje va a la cola de ERRORES
-		}
-		
-		//Si existe una fecha de proceso, a esta se le suma el parámetro de días para obtener la nueva fecha para ejecución
-		//Obtengo la nueva fecha_proceso = fecha_proceso_anterior + cantidad_de_días
-		try {
-			Fecha_Proceso = CalculaDias.CalculaFechaProceso(Integer.parseInt(strDias));
-		} catch (NumberFormatException | java.text.ParseException e) {
-			// Mensaje va a la cola de ERRORES
-			Msjs.Mensaje("PROGRAMA", Fecha_Actual,Programa, "Problema al calcular la siguiente Fecha de Carga, Verifique el parámetro de Días " + e.getMessage(), ArchLog);
-		}
-		
-		Fecha_Actual = CalculaDias.FechaActual();
-
-		// Si la nueva fecha de proceso es igual a la fecha actual, se ejecuta el select
-		if (Fecha_Proceso.equals(Fecha_Actual))
-		{
-			// Se debe enviar a la cola de ERRORES el nombre del programa a procesar y la fecha de proceso
-			Msjs.Mensaje("PROGRAMA", Fecha_Actual, Programa, "FECHA DE PROCESO VALIDA", ArchLog);
-			
+	
 			// Se crea el manejo de la cola AMQ
 			ColaAMQ = new ManejoAMQ(strHostMQ, strPrtMQ, strNMQ, ArchLog, Msjs, Fecha_Actual);
 	
 			
-			if (ColaAMQ.ConectAMQ(strHostMQ, strPrtMQ, strNMQ, ArchLog, Msjs, Fecha_Actual))
+			if (ColaAMQ.ConectAMQ(strNMQ, ArchLog, Msjs, Fecha_Actual))
 			{
 			// Debo crear la conexion a la Cola de ActiveMQ
 			// Se crea y realiza la conexión a la DB
@@ -91,16 +123,17 @@ public class Principal {
 				//Para las diferentes ejecuciones se envia la fecha de proceso, la conexión y el archivo log
 				
 				//Ejecución de la clase para extraer los datos de Usuarios
-				DatosUsuario Usuarios = new DatosUsuario(Fecha_Proceso, con_SISO, ArchLog);
-				Usuarios.LeeDatosUsuario(Fecha_Proceso, con_SISO, ColaAMQ, ArchLog);
+				DatosUsuario Usuarios = new DatosUsuario(Fecha_Actual, con_SISO, ArchLog);
+		
+				Usuarios.LeeDatosUsuario(Fecha_Actual, con_SISO, ColaAMQ, ArchLog);
 				
 				//Ejecución de la clase para extraer los datos de BeneficiosxUsuario
-				DatosBeneficiosUsuario Beneficiosxusuario = new DatosBeneficiosUsuario (Fecha_Proceso, con_SISO, ArchLog);
-				Beneficiosxusuario.LeeDatosBeneficioUsuario(Fecha_Proceso, con_SISO, ColaAMQ, ArchLog);
+				DatosBeneficiosUsuario Beneficiosxusuario = new DatosBeneficiosUsuario (Fecha_Actual, strBen,  con_SISO, ArchLog);
+				Beneficiosxusuario.LeeDatosBeneficioUsuario(Fecha_Actual, con_SISO, ColaAMQ, ArchLog);
 				
 				//Ejecución de la clase para extraer los datos de Entregas
-				DatosEntregas Entregas = new DatosEntregas(Fecha_Proceso, con_SISO, ArchLog);
-				Entregas.LeeDatosEntregas(Fecha_Proceso, con_SISO, ColaAMQ, ArchLog);
+				DatosEntregas Entregas = new DatosEntregas(Fecha_Actual, strPrg, strBen, con_SISO, ArchLog);
+				Entregas.LeeDatosEntregas(Fecha_Actual, con_SISO, ColaAMQ, ArchLog);
 				
 				//Cerrar los objetos de manejo de BD
 				con_SISO.close();   
@@ -110,11 +143,6 @@ public class Principal {
 			else {
 				Msjs.Mensaje("PROGRAMA", Fecha_Actual, Programa, "CONEXION INVALIDA REVISE EL ESTADO DE LA DB", ArchLog);
 			}			}
-		} // Fin Condicion Fecha_Proceso.equals(Fecha_Actual)
-		else {
-			Msjs.Mensaje("PROGRAMA", Fecha_Actual,Programa, "NO ES FECHA DE EJECUCION", ArchLog);
-			//ColaAMQ.EnvioMsjAMQ(Fecha_Proceso, "fin", ArchLog, Msjs);
-		}
 		return null;
 	}
 	
@@ -134,11 +162,7 @@ public class Principal {
 		String strPwd=null;			//Almacena el password
 		String strDBMS=null;		//Almacena el DBMS que será utilizado
 		String strFecIni=null;		//Fecha de la primera carga
-		String strDias=null;		//Cuantos días pasaran para la siguiente carga
-		String strGracia=null;		//Días de gracias para recargar la data
-		String strNumInt=null;
-		String strFecCar=null;		//Fecha de la última carga realizada, esta la coloca el WS
-		
+
 		// Variables que identifican los datos de la institucion, programa y beneficio que se extraeran 
 		String strInst=null;		//Institución que envia los datos
 		String strPrg=null;			//Programa descripcion
@@ -158,19 +182,16 @@ public class Principal {
 		LeeArchivo Archivo = new LeeArchivo("C:\\SISO_Apps\\Parametros.ini");
 		Linea =  Archivo.Leerlinea();
 		
-		// Abro el archivo temporal donde se almacenan los cambios que se haran al archivo de Parámetros
-		GrabaArchivo NuevoArch = new GrabaArchivo("C:\\SISO_Apps\\temporal.ini");
-		
 		// Se crea el archivo log para la presente ejecución
 		ArchLog = new GrabaArchivo("C:\\SISO_Apps\\Logs\\Log_"+ Fecha_Actual + ".dat");
 		
-		Msjs = new FormateaMensaje (null,Fecha_Actual,"Parametros","REVISION",ArchLog);		
+		Msjs = new FormateaMensaje (Fecha_Actual,"REVISION",ArchLog);		
 				
 		// Recorro el archivo para obtener los distintos parámetros que utiliza la aplicación
 		while (Linea!=null)
 		{
-			
 			if(Linea.indexOf("]")>0)
+	
 			{
 				//Obtengo el nombre del programa a procesar
 				Nombre_Programa = Linea.substring(1,Linea.indexOf("]"));
@@ -203,9 +224,6 @@ public class Principal {
 				}   else if(Encabezado.equals("PROGRAMA"))
 				{
 					strPrg=Linea.substring(Linea.indexOf("=")+1,Linea.length());
-				}   else if(Encabezado.equals("BENEFICIO"))
-				{
-					strBen=Linea.substring(Linea.indexOf("=")+1,Linea.length());
 				}   else if(Encabezado.equals("HOSTMQ"))
 				{
 					strHostMQ=Linea.substring(Linea.indexOf("=")+1,Linea.length());
@@ -215,40 +233,61 @@ public class Principal {
 				}   else if(Encabezado.equals("NOMBREMQ"))
 				{
 					strNMQ=Linea.substring(Linea.indexOf("=")+1,Linea.length());
-				}   else if(Encabezado.equals("FECHA_INICIAL"))
+				}    else if(Encabezado.equals("EJECUCION"))
 				{
-					strFecIni=Linea.substring(Linea.indexOf("=")+1,Linea.length());
-				}    else if(Encabezado.equals("DIAS"))
-				{
-					strDias=Linea.substring(Linea.indexOf("=")+1,Linea.length());
-				}   else if(Encabezado.equals("FECHA_CARGA"))
-				{
-					strFecCar=Linea.substring(Linea.indexOf("=")+1,Linea.length());
-					
-					Msjs.Mensaje("PROGRAMA",Fecha_Actual, Nombre_Programa, "Calculo Fecha Ejecución", ArchLog);
-					// El parametro FECHA_CARGA es el ultimo de cada programa por ello aca se ejecuta la obtención de datos
-					String Ejecutado  = Ejecucion(Nombre_Programa, strFecIni, strFecCar, strDias, strDBMS, strHost, strPrt, strDB, strUsr, strPwd,strInst,strPrg,strBen,strHostMQ, strPrtMQ, strNMQ);
-			
-					if (Ejecutado!=null)
-					{
-						strFecCar = Ejecutado;
-						Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "FIN DE EJECUCION", ArchLog);
-					}
-					else {
-						strFecCar = "";
-						Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "EJECUCION FALLIDA", ArchLog);
-						// Se debe ingresar mensaje de no ejecucion en la cola de ERRORES
-					}
-					Linea = Linea.substring(0,Linea.indexOf("=")+1) + strFecCar;
-				}
+					Linea = Linea.substring(Linea.indexOf("=")+1,Linea.length());
 				
-			} // Fin de la condición Linea.indexOf("=")>0
-		
-			NuevoArch.GrabaLinea(Linea);
+					// Es una línea de calendarización
+					// Debo parsear la línea para obtener los parametros que deciden si en la fecha presente se debe ejecutar
+					String	dia_mes=null;
+					String  mes=null;
+					String  dia_semana=null;
+
+					// Obtengo el día del mes definido para ejecución
+					dia_mes = Linea.substring(0,Linea.indexOf(" "));
+					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
+					
+					// Obtengo el mes definido para ejecución
+					mes = Linea.substring(0,Linea.indexOf(" "));
+					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
+				
+					// Obtengo el dia de la semana definido para ejecución
+					dia_semana = Linea.substring(0,Linea.indexOf(" "));
+					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
+				
+					// Obtengo los beneficios a ejecutar
+					strBen = Linea.substring(0,Linea.length());
+				
+					Msjs.Mensaje("PROGRAMA",Fecha_Actual, Nombre_Programa, "Calculo Fecha Ejecución", ArchLog);
+	
+					// El parametro FECHA_CARGA es el ultimo de cada programa por ello aca se ejecuta la obtención de datos
+				
+					if(ValidaEsFechaProceso(dia_mes, mes, dia_semana,Nombre_Programa)==true)
+					{
+						String Ejecutado=null;
+				
+						Ejecutado = Ejecucion(Nombre_Programa, strFecIni, strDBMS, strHost, strPrt, strDB, strUsr, strPwd,strInst,strPrg,strBen,strHostMQ, strPrtMQ, strNMQ);
+				   
+						if (Ejecutado!=null)
+						{
+							// Finaliza la ejecución del programa social
+							Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "FIN DE EJECUCION", ArchLog);
+						}
+						else {
+							// Se debe ingresar mensaje de no ejecucion en la cola de ERRORES
+							Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "EJECUCION FALLIDA", ArchLog);
+						}
+					} // Fin if(SeProcesa.ValidaEsFechaProceso
+				} // Entra a linea CAL
+		  } // (Linea.indexOf("=")>0)
 			
+			// Leo la siguiente linea del archivo parametro.ini
 			Linea =  Archivo.Leerlinea();
+		
+			
 		} // Finaliza el While que recorre el archivo de parámetros
-		NuevoArch.GrabaLinea("fin");
+		Archivo.cierra();
+		Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "PROCESO FINALIZADO", ArchLog);
 		ArchLog.GrabaLinea("fin");
 }
 	
