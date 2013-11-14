@@ -1,5 +1,19 @@
 package mides.gob.ws.leeinformacion;
 
+/**
+ * Clase que se utiliza para la transferencia de información de la tabla tbl_beneficiosxusuario
+ * hacia el Registro Unificado de Usuarios
+ * @author	Mynor Pacheco
+ * @version 1.0
+ * @see 	java.sql.Connection;
+ * @see 	java.sql.SQLException;
+ * @see 	java.sql.Statement;
+ * @see 	java.sql.ResultSet;
+ * @see 	mides.gob.ws.utilerias.FormateaMensaje;
+ * @see 	mides.gob.ws.utilerias.GrabaArchivo;
+ * @see 	mides.gob.ws.utilerias.ManejoAMQ;
+ */
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,6 +24,7 @@ import mides.gob.ws.utilerias.GrabaArchivo;
 import mides.gob.ws.utilerias.ManejoAMQ;
 
 public class DatosBeneficiosUsuario {
+
 
 	private Statement 		ejSQL_BENEFICIOSXUSUARIOS;		//Para ejecutar el select
 	private ResultSet 		rs_BENEFICIOSXUSUARIOS; 		//Datos_BENEFICIOSXUSUARIOS es el result set que almacena los resultados del select
@@ -22,11 +37,21 @@ public class DatosBeneficiosUsuario {
 					"cui" +
 					",id_beneficio" +
 					",status" +
-					",fecha_cambio" + 
 					" from " + Tablaxusar;
 		
 	String qrySQL_BENEFICIOSxUSUARIOS_TOTAL="select totales=count(*) from " + Tablaxusar;
 	
+	/**
+	 * Constructor	DatosBeneficiosUsuario	Verifica que la Conexion hacia la Base de Datos sea válida
+	 * 										de lo contrario reporta error en la bitácora y finaliza el proceso.
+	 * 										Verifica si se debe aplicar filtro por beneficio.	
+	 * @param  		Fecha_Proceso			Es la fecha en la cual el proceso se ejecuta
+	 * @param 		Beneficio				El valor de este parámetro se obtiene del archivo Parametro.ini, dependiendo de su valor
+	 * 										se aplica un filtro para obtener solo los beneficios configurados, de lo contrario se leen 
+	 * 										todos los beneficios que se encuentran en la tabla 
+	 * @param  		Conexion 				Es la conección hacia la Base de Datos previamente establecida y se verifica si aún esta activa 
+	 * @parama 		archLog  				Nombre del archivo bitácora correspondiente a la ejecución
+	 */
 	public DatosBeneficiosUsuario(String Fecha_Proceso, String Beneficio, Connection Conexion, GrabaArchivo archLog)
 	{
 		BeneficiosxUsuarioMsj = new FormateaMensaje (Fecha_Proceso, "Inicio Proceso",archLog);
@@ -39,14 +64,25 @@ public class DatosBeneficiosUsuario {
 			BeneficiosxUsuarioMsj.Mensaje("BeneficiosxUsuario",Fecha_Proceso, Tablaxusar,"SE INICIA LA LECTURA", archLog);			
 		}
 
+		Beneficio=Beneficio.trim();
 		if(!Beneficio.equals("*"))
 		{
 			qrySQL_BENEFICIOSxUSUARIOS_TOTAL = qrySQL_BENEFICIOSxUSUARIOS_TOTAL + " Where id_beneficio in (" + Beneficio +")"; 
 			qrySQL_BENEFICIOSXUSUARIOS = qrySQL_BENEFICIOSXUSUARIOS + " Where id_beneficio in (" + Beneficio +")";
-			
 		}
 	}
 	
+	/**
+	 * Método	LeeDatosBeneficioUsuario	Prepara y ejecuta los comandos para obtener los datos a ser transferidos.
+	 * 										El primer comando es un count para verificar si en la tabla existen datos.
+	 * 										El segundo comando es el select para obtener los registros los cuale se convierten a formato xml
+	 * 										y se envia a la cola ActiveMQ.
+	 * @param  		Fecha_Proceso			Es la fecha en la cual el proceso se ejecuta
+	 * @param  		Conexion 				Es la conección hacia la Base de Datos previamente establecida 
+	 * @param 		Cola					Nombre la cola a la cual será enviada la información obtenida
+	 * @parama 		archLog  				Nombre del archivo bitácora correspondiente a la ejecución
+	 * @throws 		SQLException			Manejo de errores generados por los comandos SQL
+	 */
 	public void LeeDatosBeneficioUsuario(String Fecha_Proceso, Connection Conexion, ManejoAMQ Cola, GrabaArchivo archLog) throws SQLException
 	{
 		String Mensaje=null;
@@ -101,7 +137,6 @@ public class DatosBeneficiosUsuario {
 						"<cui>" + String.valueOf(rs_BENEFICIOSXUSUARIOS.getLong("cui")) + "</cui>" +
 						"<id_beneficio>" + String.valueOf(rs_BENEFICIOSXUSUARIOS.getInt("id_beneficio")) + "</id_beneficio>" +
 						"<status>" + rs_BENEFICIOSXUSUARIOS.getString("status") + "</status>" +
-						"<fecha_cambio>" + rs_BENEFICIOSXUSUARIOS.getString("fecha_cambio") + "</fecha_cambio>" +
 						"</row>" +		
 						"</beneficiosxusuario>";
 				 // Fin del Mensaje

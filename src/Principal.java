@@ -60,7 +60,8 @@ public class Principal {
 	
 	public boolean ValidaEsFechaProceso(String p_dia_mes, String p_mes, String p_dia_semana,String Programa) throws java.text.ParseException 
     {
-		
+
+		// Obtengo los valores mes, dia_mes y dia_semana de la fecha en que se ejecuta
 		boolean dia_mes_valido=false,mes_valido=false,dia_semana_valido=false;
 		
 		Calendar calc = Calendar.getInstance();
@@ -68,7 +69,8 @@ public class Principal {
 		String l_mes = String.valueOf(calc.get(Calendar.MONTH)+1);
 		String l_dia_mes = String.valueOf(calc.get(Calendar.DAY_OF_MONTH));
 		String l_dia_semana = String.valueOf(calc.get(Calendar.DAY_OF_WEEK));
-		
+
+		// Se validan los valores de  los parametros
 		if ((p_dia_mes.equals(" ")) || (p_dia_mes==null))
 		{
 			Msjs.Mensaje("PARAMETROS", Fecha_Actual, Programa, "Parametro de dia del mes INVALIDO", ArchLog);
@@ -87,18 +89,27 @@ public class Principal {
 			return false;
 		}
 		
-	    //Paseo el parametro buscando si el valor de hoy es válido para ejecutar el proceso
+	    //Parseo el parametro buscando si el valor de hoy es válido para ejecutar el proceso
 		//los parametros que inician con p_ son los parámetros que vienen del archivo parametro.ini 
 		//las variables con los datos de hoy inician con l_ y esto son los que se validan contra los p_
+		//El resultado es un valor boolean y se almacena en las variables _valido
 		dia_mes_valido=ParserParametro(p_dia_mes,l_dia_mes);
 		mes_valido=ParserParametro(p_mes,l_mes);
 		dia_semana_valido=ParserParametro(p_dia_semana,l_dia_semana);
 		
-		if (p_dia_mes.equalsIgnoreCase("0")) mes_valido=false;
-		if (p_mes.equalsIgnoreCase("0")) { dia_mes_valido=false; dia_semana_valido=false;}
-		if (p_dia_semana.equalsIgnoreCase("0")) mes_valido=false;
+		//Si alguno de los parametros trae un valor 0 implica que ese parametro no debe tomarse en cuenta para 
+		//decidir si el proceso se ejecuta
+		if (p_dia_mes.equals("0")) dia_mes_valido=false;
+		if (p_mes.equals("0"))  mes_valido=false;
+		if (p_dia_semana.equals("0")) dia_semana_valido=false;
 		
-		return dia_mes_valido || mes_valido || dia_semana_valido;
+		//Validaciones sobre las variables boolean para retornar verdadero si el proceso debe ejecutarse
+		//de lo contrario se retorna falso y el proceso no se ejecutará
+		if ((mes_valido && dia_mes_valido)==true) return true;
+		if ((mes_valido && dia_semana_valido)==true) return true;
+		if ((p_mes.equals("0")) && (dia_mes_valido || dia_semana_valido)==true) return true;
+		
+		return false;
     }
 	
 	public String Ejecucion(String Programa, String strFecIni, String strDBMS, String strHost, String strPrt, String strDB, String strUsr,String strPwd,String strInst,String strPrg,String strBen, String strHostMQ,String strPrtMQ, String strNMQ) throws SQLException, JMSException
@@ -106,7 +117,7 @@ public class Principal {
 		
 	
 			// Se crea el manejo de la cola AMQ
-			ColaAMQ = new ManejoAMQ(strHostMQ, strPrtMQ, strNMQ, ArchLog, Msjs, Fecha_Actual);
+			ColaAMQ = new ManejoAMQ(strHostMQ, strPrtMQ, ArchLog, Fecha_Actual);
 	
 			
 			if (ColaAMQ.ConectAMQ(strNMQ, ArchLog, Msjs, Fecha_Actual))
@@ -124,7 +135,6 @@ public class Principal {
 				
 				//Ejecución de la clase para extraer los datos de Usuarios
 				DatosUsuario Usuarios = new DatosUsuario(Fecha_Actual, con_SISO, ArchLog);
-		
 				Usuarios.LeeDatosUsuario(Fecha_Actual, con_SISO, ColaAMQ, ArchLog);
 				
 				//Ejecución de la clase para extraer los datos de BeneficiosxUsuario
@@ -199,7 +209,6 @@ public class Principal {
 			if(Linea.indexOf("=")>0)
 			{	
 				Encabezado = Linea.substring(0,Linea.indexOf("="));
-				//System.out.println(Linea);
 				if(Encabezado.equals("HOST"))
 				{
 					strHost=Linea.substring(Linea.indexOf("=")+1,Linea.length());
@@ -238,54 +247,80 @@ public class Principal {
 					Linea = Linea.substring(Linea.indexOf("=")+1,Linea.length());
 				
 					// Es una línea de calendarización
-					// Debo parsear la línea para obtener los parametros que deciden si en la fecha presente se debe ejecutar
+					// Debo parsear la línea para obtener los parametros que deciden si en la fecha presente 
+					// se debe ejecutar el proceso
 					String	dia_mes=null;
 					String  mes=null;
 					String  dia_semana=null;
+					
 
 					// Obtengo el día del mes definido para ejecución
-					dia_mes = Linea.substring(0,Linea.indexOf(" "));
-					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
-					
-					// Obtengo el mes definido para ejecución
-					mes = Linea.substring(0,Linea.indexOf(" "));
-					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
-				
-					// Obtengo el dia de la semana definido para ejecución
-					dia_semana = Linea.substring(0,Linea.indexOf(" "));
-					Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
-				
-					// Obtengo los beneficios a ejecutar
-					strBen = Linea.substring(0,Linea.length());
-				
-					Msjs.Mensaje("PROGRAMA",Fecha_Actual, Nombre_Programa, "Calculo Fecha Ejecución", ArchLog);
-	
-					// El parametro FECHA_CARGA es el ultimo de cada programa por ello aca se ejecuta la obtención de datos
-				
-					if(ValidaEsFechaProceso(dia_mes, mes, dia_semana,Nombre_Programa)==true)
+					try
 					{
-						String Ejecutado=null;
-				
-						Ejecutado = Ejecucion(Nombre_Programa, strFecIni, strDBMS, strHost, strPrt, strDB, strUsr, strPwd,strInst,strPrg,strBen,strHostMQ, strPrtMQ, strNMQ);
-				   
-						if (Ejecutado!=null)
+						if ((Linea.length()>0) && Linea.indexOf(" ")>0)
 						{
-							// Finaliza la ejecución del programa social
-							Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "FIN DE EJECUCION", ArchLog);
+							dia_mes = Linea.substring(0,Linea.indexOf(" "));
+							Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
 						}
-						else {
-							// Se debe ingresar mensaje de no ejecucion en la cola de ERRORES
-							Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "EJECUCION FALLIDA", ArchLog);
+					
+						// Obtengo el mes definido para ejecución
+						if ((Linea.length()>0) && Linea.indexOf(" ")>0)
+						{
+							mes = Linea.substring(0,Linea.indexOf(" "));
+							Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
 						}
-					} // Fin if(SeProcesa.ValidaEsFechaProceso
+					
+						// Obtengo el dia de la semana definido para ejecución
+						if ((Linea.length()>0) && Linea.indexOf(" ")>0)
+						{
+							dia_semana = Linea.substring(0,Linea.indexOf(" "));
+							Linea = Linea.substring(Linea.indexOf(" ")+1,Linea.length());
+						}
+					} catch (Exception Error )
+			    	{
+			   		 	Msjs.Mensaje("PARAMETROS", Fecha_Actual, "Problema parámetros Calendarización", Error.getMessage(), ArchLog);
+			    	}
+					// Obtengo los beneficios a ejecutar
+					// Si la línea ya no contiene datos implica que el parámetro Beneficio no fue declarado
+					// Se genera un error para la ejecución del Programa Social
+					if ((Linea.length()>0) && (dia_mes!=null) && (mes!=null) && (dia_semana!=null))
+					{
+						strBen = Linea.substring(0,Linea.length());
+				
+						Msjs.Mensaje("PROGRAMA",Fecha_Actual, Nombre_Programa, "Calculo Fecha Ejecución", ArchLog);
+	
+						//Si la Fecha de ejecución es válida para la ejecución se procede con la misma
+						if(ValidaEsFechaProceso(dia_mes, mes, dia_semana,Nombre_Programa)==true)
+						{
+							// Se ejecuta el proceso para la transferencia de información
+							String Ejecutado = Ejecucion(Nombre_Programa, strFecIni, strDBMS, strHost, strPrt, strDB, strUsr, strPwd,strInst,strPrg,strBen,strHostMQ, strPrtMQ, strNMQ);
+				   
+							// Si el proceso retorna un valor nulo  se notifica en la bitácora
+							// De lo contrario se notifica la finalización de la ejecución del Programa Social
+							if (Ejecutado!=null)
+							{
+								// Finaliza la ejecución del programa social
+								Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "FIN DE EJECUCION", ArchLog);
+							}
+							else {
+								// Se debe ingresar mensaje de no ejecucion en la cola de ERRORES
+								Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "EJECUCION FALLIDA", ArchLog);
+							}
+						} // Fin if(SeProcesa.ValidaEsFechaProceso
+					} // Fin if (Linea.length()>0)
+					else {
+						if(dia_mes==null)  Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "Parametro Calendarización dia_mes Inválido", ArchLog);
+						if(mes==null) Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "Parametro Calendarización mes Inválido", ArchLog);
+						if(dia_semana==null) Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "Parametro Calendarización dia_semana Inválido", ArchLog);
+						if(strBen==null) Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "Parametro Calendarización Beneficio Inválido", ArchLog);
+					}
 				} // Entra a linea CAL
 		  } // (Linea.indexOf("=")>0)
-			
+					
 			// Leo la siguiente linea del archivo parametro.ini
 			Linea =  Archivo.Leerlinea();
-		
-			
 		} // Finaliza el While que recorre el archivo de parámetros
+		
 		Archivo.cierra();
 		Msjs.Mensaje("PROGRAMA", Fecha_Actual,Nombre_Programa, "PROCESO FINALIZADO", ArchLog);
 		ArchLog.GrabaLinea("fin");

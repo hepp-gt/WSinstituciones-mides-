@@ -64,9 +64,8 @@ public class DatosUsuario {
 						" from " + Tablaxusar;	
 
 	/**
-	 * Constructor 	DatosUsuario: verifica que la Conexion hacia la Base de Datos sea válida
-	 * 				de lo contrario reporta error en la bitácora y finaliza el proceso
-	 * @author 		Mynor Pacheco
+	 * Constructor 	DatosUsuario: 	Verifica que la Conexion hacia la Base de Datos sea válida
+	 * 								de lo contrario reporta error en la bitácora y finaliza el proceso
 	 * @param  		Fecha_Proceso	Es la fecha en la cual el proceso se ejecuta
 	 * @param  		Conexion 		Es la conección hacia la Base de Datos previamente establecida 
 	 * @parama 		archLog  		Nombre del archivo bitácora correspondiente a la ejecución
@@ -87,14 +86,12 @@ public class DatosUsuario {
 	}
 	
 	/**
-	 * Método 		LeeDatosUsuario: se utiliza para leer la información que debe ser enviada a la cola ActiveMQ
-	 * 		  		la información es obtenida de la tabla tbl_usuario
-	 * 				la información es enviada en formato xml donde el nombre del campo es la etiqueta
-	 * @author 		Mynor Pacheco
-	 * @param  		Fecha_Proceso	Es la fecha en la cual el proceso se ejecuta
-	 * @param  		Conexion 		Es la conección hacia la Base de Datos previamente establecida 
-	 * @param		Cola			Conección a la cola Active MQ a la cual se enviara la información leída
-	 * @parama 		archLog  		Nombre del archivo bitácora correspondiente a la ejecución
+	 * Método 		LeeDatosUsuario: 	Se utiliza para leer la información que debe ser enviada a la cola ActiveMQ.
+	 * 		  							La información es obtenida de la tabla y enviada a la cola en formato xml.
+	 * @param  		Fecha_Proceso		Es la fecha en la cual el proceso se ejecuta
+	 * @param  		Conexion 			Es la conección hacia la Base de Datos previamente establecida 
+	 * @param		Cola				Conección a la cola Active MQ a la cual se enviara la información leída
+	 * @parama 		archLog  			Nombre del archivo bitácora correspondiente a la ejecución
 	 */
 
 	public void LeeDatosUsuario(String Fecha_Proceso, Connection Conexion,ManejoAMQ Cola, GrabaArchivo archLog) throws SQLException

@@ -15,25 +15,23 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 
 public class ManejoAMQ 
 {
-	private ConnectionFactory 	ConectAMQ;
-	private Connection			ConexionAMQ=null;
-	private Session				sesion;
-	private Destination			destino;
-	private MessageProducer		productor;
-	private FormateaMensaje		AMQMsj2;
+	private ActiveMQConnectionFactory 	ConectAMQ;
+	private Connection					ConexionAMQ=null;
+	private Session						sesion;
+	private Destination					destino;
+	private MessageProducer				productor;
+	private FormateaMensaje				AMQMsj;
 	
 	/**
 	 * Constructor	ManejoAMQ	Crea la conección hacia el servicio de ActiveMQ 
-	 * @param Servidor
-	 * @param Puerto
-	 * @param Cola
-	 * @param ArchLog
-	 * @param AMQMsj
-	 * @param Fecha_Actual
+	 * @param Servidor			Nombre o dirección IP del servidor donde se ubica el servicio ActiveMQ		
+	 * @param Puerto			Puerto en el que escucha las peticiones el ActiveMQ
+	 * @param ArchLog			Nombre del archivo bitácora correspondiente a la ejecución
+	 * @param Fecha_Actual		Es la fecha en la cual el proceso se ejecuta
 	 */
-	public ManejoAMQ(String Servidor, String Puerto, String Cola, GrabaArchivo ArchLog, FormateaMensaje AMQMsj,String Fecha_Actual)
+	public ManejoAMQ(String Servidor, String Puerto, GrabaArchivo ArchLog,String Fecha_Actual)
 	{
-		AMQMsj2 = new FormateaMensaje (Fecha_Actual, "Active MQ" ,ArchLog);
+		AMQMsj = new FormateaMensaje (Fecha_Actual, "Active MQ" ,ArchLog);
 		
 		ConectAMQ = new ActiveMQConnectionFactory("tcp://"+ Servidor + ":" + Puerto);
 		
@@ -56,12 +54,12 @@ public class ManejoAMQ
 			ConexionAMQ = ConectAMQ.createConnection();
 		} catch (JMSException error) {
 			// Se reporta el error al log de la institución
-			//AMQMsj2.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", error.getMessage(), ArchLog);
+			AMQMsj.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", error.getMessage(), ArchLog);
 		}
 		
 		if (ConexionAMQ==null)
 		{
-			AMQMsj2.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", "CONEXION INVALIDA REVISE EL ESTADO DE  ACTIVE MQ", ArchLog);
+			AMQMsj.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", "CONEXION INVALIDA REVISE EL ESTADO DE  ACTIVE MQ", ArchLog);
 			return false;
 		} 
 		else {
@@ -73,7 +71,7 @@ public class ManejoAMQ
 				return true;
 			} catch (JMSException error) {
 				// Se reporta el error al log de la institución
-				AMQMsj2.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", error.getMessage(), ArchLog);
+				AMQMsj.Mensaje("ACTIVE", Fecha_Actual, "Active MQ", error.getMessage(), ArchLog);
 			}
 		}
 		return false;
@@ -81,10 +79,10 @@ public class ManejoAMQ
 	
 	/**
 	 * Método	EnvioMsAMQ	Envía un mensaje como Productor hacía la cola de ActiveMQ
-	 * @param Fecha		Es la fecha en la cual el proceso se ejecuta
-	 * @param Msj		Mensaje que se enviará a la cola ActiveMQ (por requerimiento de SISO, el mensaje se envia en formato xml)
-	 * @param ArchLog	Nombre del archivo bitácora correspondiente a la ejecución
-	 * @param AMQMsj	Manejo y formato de los mensajes a la bitácora
+	 * @param Fecha			Es la fecha en la cual el proceso se ejecuta
+	 * @param Msj			Mensaje que se enviará a la cola ActiveMQ (por requerimiento de SISO, el mensaje se envia en formato xml)
+	 * @param ArchLog		Nombre del archivo bitácora correspondiente a la ejecución
+	 * @param AMQMsj		Manejo y formato de los mensajes a la bitácora
 	 */
 	
 	public void EnvioMsjAMQ (String Fecha,String Msj, GrabaArchivo ArchLog,FormateaMensaje AMQMsj)
@@ -98,7 +96,7 @@ public class ManejoAMQ
 				mensaje = sesion.createTextMessage(Msj);
 			} catch (JMSException error) {
 			// Se reporta el error al log de la institución
-			AMQMsj2.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
+			AMQMsj.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
 			}
 		
 			//Si el mensaje enviado es "fin" corresponde a que finaliza el proceso y se cierra la cola
@@ -109,7 +107,7 @@ public class ManejoAMQ
 					ConexionAMQ.close();
 				} catch (JMSException error) {
 				// Se reporta el error al log de la institución
-				AMQMsj2.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
+				AMQMsj.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
 				}
 			} else // mensaje para enviar a la cola
 			{
@@ -117,7 +115,7 @@ public class ManejoAMQ
 					productor.send(mensaje);
 				} catch (JMSException error) {
 					// Se reporta el error al log de la institución
-					AMQMsj2.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
+					AMQMsj.Mensaje("ACTIVE", Fecha, "Active MQ", error.getMessage(), ArchLog);
 				}
 			}
 		}
